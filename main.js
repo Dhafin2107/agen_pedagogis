@@ -105,7 +105,7 @@ function selectCharacter(character) {
   // Inisialisasi variabel untuk menyimpan emosi sebelumnya
   let prevEmotion = "CALM";
 
-  // Membuat fungsi interval untuk capture gambar setiap 5 detik
+  // Membuat fungsi interval untuk capture gambar setiap 10 detik
   setInterval(function () {
     // Menggambar hasil capture video ke dalam elemen canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -334,31 +334,31 @@ function selectCharacter(character) {
             case "DISGUSTED":
               if (prevEmotion == "CALM") {
                 console.log("dari CALM jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Surprise.gif" : selectedCharacter + "/Newdisgust2Happy.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Surprise.gif" : selectedCharacter + "/NewDisgust2Happy.gif");
               } else if (prevEmotion == "SAD") {
                 console.log("dari SAD jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "ANGRY") {
                 console.log("dari ANGRY jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "CONFUSED") {
                 console.log("dari CONFUSED jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "HAPPY") {
                 console.log("dari HAPPY jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "SURPRISED") {
                 console.log("dari SURPRISED jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "FEAR") {
                 console.log("dari FEAR jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else if (prevEmotion == "UNKNOWN") {
                 console.log("dari UNKNOWN jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               } else {
                 console.log("masih DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/Newdisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
+                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
               }
               break;
             case "FEAR":
