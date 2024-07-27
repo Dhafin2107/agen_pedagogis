@@ -14,7 +14,7 @@ function selectCharacter(character) {
   var images = [
     "NewNetral.gif",
     "NewAngry2Relax.gif",
-    "Newdisgust2Happy.gif",
+    "NewDisgust2Happy.gif",
     "NewDisgust2Surprise.gif",
     "NewFear2Relax.gif",
     "NewHappy.gif",
