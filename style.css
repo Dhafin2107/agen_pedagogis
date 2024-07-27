@@ -24,13 +24,13 @@
 }
 
 .popup-content img {
-  width: 200px;
+  width: 350px;
   height: 200px;
   margin-bottom: 20px;
 }
 
 #canvas {
-  display: none;
+  display: none
 }
 body {
   margin: 0;
@@ -73,7 +73,7 @@ body {
   }
 }
 #agenVideo {
-  /* background-image: url("load.gif"); */
+  background-image: url("load.gif");
   background-size: cover;
   /* animation: pulse 3s infinite; */
   
