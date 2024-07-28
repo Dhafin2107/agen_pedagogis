@@ -2,7 +2,6 @@
 <html>
   <head>
     <title>Simulasi Agen Pedagogis</title>
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.738.0.min.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css" />
   </head>
   <body>
@@ -13,22 +12,20 @@
         <img src="P1.png" onmouseover="changeImage(this, 'P2.png')" onmouseout="changeImage(this, 'P1.png')" onclick="selectCharacter('P')" alt="Karakter Perempuan" />
       </div>
     </div>
-
-  <div class="container">
+    <div class="container">
       <div class="main-video">
-        <iframe width="100%" height="100%"  frameborder="0" src="learn.webm" allow="autoplay; encrypted-media"></iframe>
+        <iframe width="100%" height="100%" frameborder="0" src="learn.webm" allow="autoplay; encrypted-media"></iframe>
       </div>
       <div class="side-videos-wrapper">
         <div class="side-video">
-          <iframe id="agenVideo" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+          <img id="agenVideo" src="" alt="Agen Video" />
         </div>
         <div class="side-video">
-          <video id="video" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media"></video>
+          <video id="video" autoplay muted style="width: 100%; height: 100%;"></video>
+          <canvas id="canvas"></canvas>
         </div>
       </div>
     </div>
-    </div>
-    <canvas id="canvas" width="640" height="480"></canvas>
   </body>
   <script src="main.js"></script>
 </html>

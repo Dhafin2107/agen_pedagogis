@@ -1,4 +1,11 @@
 var selectedCharacter = "";
+let intervalId, videoChangeIntervalId, captionChangeIntervalId;
+let latestResult = null;
+let video, canvas, context;
+let currentEmotion = "Netral"; // Inisialisasi variabel emosi saat ini
+let currentEmotionPerc = 0; // Inisialisasi variabel persentase emosi saat ini
+let currentFaceBox = null; // Inisialisasi variabel face box saat ini
+
 function changeImage(element, newImage) {
   element.src = newImage;
 }
@@ -6,11 +13,9 @@ function changeImage(element, newImage) {
 function selectCharacter(character) {
   var popup = document.getElementById("popup");
   popup.style.display = "none";
-
   selectedCharacter = character;
 
-  var folder = selectedCharacter + "/"; //mengarahkan de direktori yang dipilih
-
+  var folder = selectedCharacter + "/"; //mengarahkan ke direktori yang dipilih
   var images = [
     "NewNetral.gif",
     "NewAngry2Relax.gif",
@@ -35,377 +40,170 @@ function selectCharacter(character) {
     document.head.appendChild(link);
   }
 
-  // Membuat instance dari AWS Rekognition SDK dengan menggunakan access key dan secret key yang valid
-  const rekognition = new AWS.Rekognition({
-    region: "ap-southeast-2",
-    accessKeyId: "AKIA5WGSLCIKGLDGFXPB",
-    secretAccessKey: "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",
-  });
+  // Inisialisasi variabel video dan canvas setelah popup ditutup
+  video = document.getElementById("video");
+  canvas = document.getElementById("canvas");
+  context = canvas.getContext("2d");
 
-  // Mengambil elemen video dan canvas dari dokumen HTML
-  const video = document.getElementById("video");
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
+  // Mengatur aliran media ke elemen video setelah elemen tersedia
+  setMediaStream();
 
-  // Mengatur konfigurasi media yang akan digunakan oleh getUserMedia
-  const constraints = {
-    video: true,
-  };
+  startCapturing();
+}
 
-  // Mengambil akses dari webcam melalui getUserMedia
+// Mengatur konfigurasi media yang akan digunakan oleh getUserMedia
+const constraints = {
+  video: true,
+};
+
+function setMediaStream() {
+  // Access the device camera and stream to video element
   navigator.mediaDevices
     .getUserMedia(constraints)
-    .then(function (mediaStream) {
-      video.srcObject = mediaStream;
-      // Ketika metadata dari video sudah di-load, memutar video
-      video.onloadedmetadata = function (e) {
-        video.play();
-      };
+    .then((stream) => {
+      video.srcObject = stream;
+      video.play(); // Pastikan video dimulai
+      console.log("Camera stream set");
     })
-    .catch(function (err) {
-      console.log(err.name + ": " + err.message);
+    .catch((err) => {
+      console.error("Error accessing the camera: ", err);
     });
 
-  // Inisialisasi variabel untuk menyimpan emosi sebelumnya
-  let prevEmotion = "CALM";
-  let hasPlayedSayHi = false;
+  // Menyesuaikan ukuran dan posisi kanvas saat video dimuat
+  video.addEventListener("loadeddata", () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  });
+}
 
-  // Membuat fungsi interval untuk capture gambar setiap 10 detik
-  setInterval(function () {
-    // Menggambar hasil capture video ke dalam elemen canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    // Mengonversi gambar menjadi blob dan membacanya sebagai array buffer
-    canvas.toBlob(function (blob) {
-      const fileReader = new FileReader();
-      fileReader.onload = function () {
-        const arrayBuffer = this.result;
-        const byteArray = new Uint8Array(arrayBuffer);
-        // Mengirim gambar sebagai byte array ke AWS Rekognition untuk proses face detection
-        rekognition.detectFaces(
-          {
-            Image: {
-              Bytes: byteArray,
-            },
-            Attributes: ["ALL"],
-          },
-          function (err, data) {
-            if (err) {
-              console.log(err, err.stack);
-            } else if (data.FaceDetails && data.FaceDetails.length > 0) {
-              const emotions = data.FaceDetails[0].Emotions;
-              const maxEmotion = emotions.reduce(function (prev, current) {
-                return prev.Confidence > current.Confidence ? prev : current;
-              });
-              // Menampilkan jenis emosi terbesar pada konsol
-              // console.log(maxEmotion.Type);
+// Inisialisasi variabel untuk menyimpan emosi sebelumnya
+let prevEmotion = "Netral";
+let hasPlayedSayHi = false;
 
-            if (!hasPlayedSayHi) {
-              hasPlayedSayHi = true;
-              playVideo(selectedCharacter + "/NewSayHi.gif");
-              // Menambahkan jeda 5 detik sebelum melanjutkan ke respondToEmotion
-              setTimeout(function () {
-                respondToEmotion(maxEmotion.Type);
-              }, 6000); // 6000 milidetik = 5 detik
-            } else {
-              respondToEmotion(maxEmotion.Type);
-            }
-            } else {
-              console.log("No faces detected");
-              playVideo(selectedCharacter + "/NewNetral.gif");
-            }
-          }
-        );
+// Capture image from video stream
+function captureImage() {
+  const captureCanvas = document.createElement("canvas");
+  captureCanvas.width = video.videoWidth;
+  captureCanvas.height = video.videoHeight;
+  const captureContext = captureCanvas.getContext("2d");
+  captureContext.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+  return captureCanvas.toDataURL("image/jpeg").split(",")[1];
+}
 
-        const agenVideo = document.getElementById("agenVideo");
-        const expressionBtns = document.querySelectorAll(".expressionBtn");
+// Send image to API for analysis
+async function analyzeImage(base64Image) {
+  const url = "https://emovalaro7-service-7qkc4rj5aa-et.a.run.app/predict";
+  const payload = { image: base64Image };
 
-        function playVideo(videoName) {
-          agenVideo.style.backgroundImage = `url(${videoName})`;
-        }
-        // Fungsi untuk memberikan respon terhadap ekspresi wajah yang dideteksi
-        function respondToEmotion(emotion) {
-          // Menampilkan pesan respons terkait ekspresi wajah yang dideteksi
-          switch (emotion) {
-            case "HAPPY":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              } else {
-                console.log("masih HAPPY");
-                playVideo(selectedCharacter + "/NewHappy.gif");
-              }
-              break;
-            case "SAD":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              } else {
-                console.log("masih SAD");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewSad2Happy.gif" : selectedCharacter + "/NewSad2Surprise.gif");
-              }
-              break;
-            case "ANGRY":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              } else {
-                console.log("masih ANGRY");
-                playVideo(selectedCharacter + "/NewAngry2Relax.gif");
-              }
-              break;
-            case "CONFUSED":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else {
-                console.log("masih CONFUSED");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              }
-              break;
-            case "SURPRISED":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi SUPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              } else {
-                console.log("masih SURPRISED");
-                playVideo(selectedCharacter + "/NewSurprise.gif");
-              }
-              break;
-            case "CALM":
-              if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else {
-                console.log("masih NETRAL");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              }
-              break;
-            case "DISGUSTED":
-              if (prevEmotion == "CALM") {
-                console.log("dari NETRAL jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Surprise.gif" : selectedCharacter + "/NewDisgust2Happy.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari NETRAL jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              } else {
-                console.log("masih DISGUSTED");
-                playVideo(Math.random() < 0.5 ? selectedCharacter + "/NewDisgust2Happy.gif" : selectedCharacter + "/NewDisgust2Surprise.gif");
-              }
-              break;
-            case "FEAR":
-              if (prevEmotion == "CALM") {
-                console.log("dari CALM jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari CONFUSED jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else if (prevEmotion == "UNKNOWN") {
-                console.log("dari UNKNOWN jadi FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              } else {
-                console.log("masih FEAR");
-                playVideo(selectedCharacter + "/NewFear2Relax.gif");
-              }
-              break;
-            case "UNKNOWN":
-              if (prevEmotion == "CALM") {
-                console.log("dari CALM jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SAD") {
-                console.log("dari SAD jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "ANGRY") {
-                console.log("dari ANGRY jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "CONFUSED") {
-                console.log("dari CONFUSED jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "DISGUSTED") {
-                console.log("dari DISGUSTED jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "SURPRISED") {
-                console.log("dari SURPRISED jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "FEAR") {
-                console.log("dari FEAR jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else if (prevEmotion == "HAPPY") {
-                console.log("dari HAPPY jadi UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              } else {
-                console.log("masih UNKNOWN");
-                playVideo(selectedCharacter + "/NewNetral.gif");
-              }
-              break;
-            default:
-              console.log("I'm not sure how you're feeling.");
-              playVideo(selectedCharacter + "/NewNetral.gif");
-          }
-          // Menyimpan emosi saat ini sebagai emosi sebelumnya
-          prevEmotion = emotion;
-        }
-      };
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-      fileReader.readAsArrayBuffer(blob);
-    }, "image/jpeg");
-  }, 10000); // Setiap 10 detik
+    if (response.ok) {
+      const data = await response.json();
+      latestResult = data;
+      currentFaceBox = data.face_box;
+      drawFaceBox(currentFaceBox, currentEmotion, currentEmotionPerc); // Menampilkan emosi saat ini
+      logResult();
+    } else {
+      console.error("Error:", response.status, response.statusText);
+      const errorText = await response.text();
+      console.error("Error details:", errorText);
+    }
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+// Draw face box and emotion label on canvas
+function drawFaceBox(faceBox, emotion, emotionPerc) {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (faceBox) {
+    let color = "blue";
+    if (emotion === "Neutral" || emotion === "Happiness" || emotion === "Surprise") {
+      color = "blue";
+    }
+    context.strokeStyle = color;
+    context.lineWidth = 2;
+    context.strokeRect(faceBox.x, faceBox.y, faceBox.width, faceBox.height);
+
+    context.font = "18px Arial";
+    context.fillStyle = color;
+    context.fillText(`${emotion} (${(emotionPerc * 100).toFixed(2)}%)`, faceBox.x, faceBox.y - 10);
+  }
+}
+
+// Log the latest result
+function logResult() {
+  console.log("Latest result:", latestResult);
+}
+
+// Capture and analyze image periodically
+function captureAndAnalyzePeriodically() {
+  const base64Image = captureImage();
+  analyzeImage(base64Image);
+}
+
+function startCapturing() {
+  captureAndAnalyzePeriodically(); // Call once immediately
+  intervalId = setInterval(captureAndAnalyzePeriodically, 1000);
+  videoChangeIntervalId = setInterval(updateAgentVideo, 10000); // Update agent video every 10 seconds
+  captionChangeIntervalId = setInterval(updateCaption, 5000); // Update caption every 5 seconds
+}
+
+// Add agent video based on emotion detected
+function addAgentVideo(emotion) {
+  let agenVideo = document.getElementById("agenVideo");
+
+  let videoName = "";
+
+  if (!hasPlayedSayHi) {
+    videoName = "NewSayHi";
+    hasPlayedSayHi = true;
+    setTimeout(() => {
+      updateAgentVideo(); // Lanjutkan ke video berdasarkan emosi setelah 6 detik
+    }, 6000); // 6000 ms = 6 detik
+  } else {
+    if (emotion === "Neutral") {
+      videoName = "NewNetral";
+    } else if (emotion === "Disgust") {
+      videoName = "NewDisgust2Happy";
+    } else if (emotion === "Fear") {
+      videoName = "NewFear2Relax";
+    } else if (emotion === "Happiness") {
+      videoName = "NewHappy";
+    } else if (emotion === "Sadness") {
+      videoName = "NewSad2Happy";
+    } else if (emotion === "Anger") {
+      videoName = "NewAngry2Relax";
+    } else if (emotion === "Surprise") {
+      videoName = "NewSurprise";
+    } else {
+      videoName = "NewNetral";
+    }
+  }
+
+  let folder = selectedCharacter + "/"; //mengarahkan ke direktori yang dipilih
+  let imageSrc = folder + videoName + ".gif";
+  agenVideo.src = imageSrc;
+}
+
+function updateAgentVideo() {
+  if (latestResult) {
+    currentEmotion = latestResult.emotion; // Perbarui emosi saat ini
+    currentEmotionPerc = latestResult.emotion_perc; // Perbarui persentase emosi saat ini
+    addAgentVideo(currentEmotion);
+    drawFaceBox(currentFaceBox, currentEmotion, currentEmotionPerc); // Perbarui face box dengan emosi saat ini
+  }
+}
+
+function updateCaption() {
+  if (latestResult) {
+    currentEmotion = latestResult.emotion; // Perbarui emosi saat ini
+    currentEmotionPerc = latestResult.emotion_perc; // Perbarui persentase emosi saat ini
+    drawFaceBox(currentFaceBox, currentEmotion, currentEmotionPerc); // Perbarui face box dengan emosi saat ini
+  }
 }
