@@ -10,12 +10,7 @@ function changeImage(element, newImage) {
   element.src = newImage;
 }
 
-function selectCharacter(character) {
-  var popup = document.getElementById("popup");
-  popup.style.display = "none";
-  selectedCharacter = character;
-
-  var folder = selectedCharacter + "/"; //mengarahkan ke direktori yang dipilih
+function preloadImages(folder) {
   var images = [
     "NewNetral.gif",
     "NewAngry2Relax.gif",
@@ -39,6 +34,15 @@ function selectCharacter(character) {
     link.type = "image/gif";
     document.head.appendChild(link);
   }
+}
+
+function selectCharacter(character) {
+  var popup = document.getElementById("popup");
+  popup.style.display = "none";
+  selectedCharacter = character;
+
+  var folder = selectedCharacter + "/"; //mengarahkan ke direktori yang dipilih
+  preloadImages(folder);
 
   // Inisialisasi variabel video dan canvas setelah popup ditutup
   video = document.getElementById("video");
